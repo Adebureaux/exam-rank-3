@@ -1,181 +1,150 @@
-#include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <stdio.h>
 
-typedef struct	s_zone
+typedef struct s_board
 {
-	int		width;
-	int		height;
-	char	background;
-} 				t_zone;
+	int width;
+	int height;
+	char background;
+}	board;
 
-typedef struct	s_shape
+typedef struct s_op
 {
-	char	type;
-	float	x;
-	float	y;
-	float	width;
-	float	height;
-	char	color;
-	struct s_shape	*next;
-}				t_shape;
+	char type;
+	float x;
+	float y;
+	float width;
+	float height;
+	char color;
+}	op;
 
-int
-	ft_strlen(char const *str)
+void	ft_putchar(char c)
+{
+	write(1, &c, sizeof(char));
+}
+
+void	ft_putstr(char *s)
 {
 	int	i;
 
-	i = 0;
-	while (str[i])
-		i++;
-	return (i);
+	i = -1;
+	while (s[++i])
+		ft_putchar(s[i]);
 }
 
-int
-	str_error(char const *str, int ret)
+int	parse_first_line(board *board, FILE *stream)
 {
-	write(1, str, ft_strlen(str));
-	return (ret);
+	if (!stream)
+		return (1);
+	if (fscanf(stream, "%d %d %c\n", &board->width, &board->height, &board->background) != 3)
+		return (1);
+	if (board->width <= 0 || board->width > 300)
+		return (1);
+	if (board->height <= 0 || board->height > 300)
+		return (1);
+	return (0);
 }
 
-int
-	clear_all(FILE *file, char *drawing)
+int	is_in_rectangle(float x, float y, op op)
 {
-	fclose(file);
-	if (drawing)
-		free(drawing);
-	return (1);
-}
-
-int
-	check_zone(t_zone *zone)
-{
-	return (zone->width > 0 && zone->width <= 300
-			&& zone->height > 0 && zone->height <= 300);
-}
-
-int
-	check_shape(t_shape *shape)
-{
-	return (shape->width > 0.00000000 && shape->height > 0.00000000
-			&& (shape->type == 'r' || shape->type == 'R'));
-}
-
-int
-	get_zone(FILE *file, t_zone *zone)
-{
-	int scan_ret;
-
-	if ((scan_ret = fscanf(file, "%d %d %c\n", &zone->width, &zone->height, &zone->background)) != 3)
+	if ((((x < op.x) || (op.x + op.width < x)) || (y < op.y)) || (op.y + op.height < y))
 		return (0);
-	if (!check_zone(zone))
-		return (0);
-	if (scan_ret == -1)
-		return (0);
-	return (1);
-}
-
-char
-	*paint_background(t_zone *zone)
-{
-	char	*drawing;
-	int		i;
-
-	if (!(drawing = (char*)malloc(sizeof(*drawing) * (zone->width * zone->height))))
-		return (NULL);
-	i = 0;
-	while (i < zone->width * zone->height)
-		drawing[i++] = zone->background;
-	return (drawing);
-}
-
-int
-	in_rectangle(float x, float y, t_shape *shape)
-{
-	if (((x < shape->x || (shape->x + shape->width < x))
-		|| (y < shape->y)) || (shape->y + shape->height < y))
-		return (0);
-	if (((x - shape->x < 1.00000000) || ((shape->x + shape->width) - x < 1.00000000)) ||
-	((y - shape->y < 1.00000000 || ((shape->y + shape->height) - y < 1.00000000))))
+	if (((x - op.x < 1.00000000) | ((op.x + op.width) - x < 1.00000000)) ||
+		((y - op.y < 1.00000000 || ((op.y + op.height) - y < 1.00000000))))
 		return (2);
 	return (1);
 }
 
-void
-	draw_shape(char **drawing, t_shape *shape, t_zone *zone)
+void	print_canva(char **canva, board board)
 {
-	int	i;
-	int	j;
-	int	ret;
-
-	i = 0;
-	while (i < zone->height)
-	{
-		j = 0;
-		while (j< zone->width)
-		{
-			ret = in_rectangle(j, i, shape);
-			if ((shape->type == 'r' && ret == 2)
-				|| (shape->type == 'R' && ret))
-				(*drawing)[(i * zone->width) + j] = shape->color;
-			j++;
-		}
-		i++;
-	}
+	for (int height = 0; height < board.height; height++)
+		ft_putstr(canva[height]);
 }
 
-int
-	draw_shapes(FILE *file, char **drawing, t_zone *zone)
+void	draw_one(op op, char **canva, int x, int y)
 {
-	t_shape	tmp;
-	int		scan_ret;
+	int is_in = is_in_rectangle((float)x, (float)y, op);
+	if (is_in == 2 || (is_in == 1 && op.type == 'R'))
+		canva[y][x] = op.color;
+}
 
-	while ((scan_ret = fscanf(file, "%c %f %f %f %f %c\n", &tmp.type, &tmp.x, &tmp.y, &tmp.width, &tmp.height, &tmp.color)) == 6)
+int	draw(op op, board board, char **canva)
+{
+	if (((op.width <= 0.00000000) || (op.height <= 0.00000000)) || ((op.type != 'R' && (op.type != 'r'))))
+		return (1);
+	int i = 0;
+	int j = 0;
+	while (i < board.width)
 	{
-		if (!check_shape(&tmp))
-			return (0);
-		draw_shape(drawing, &tmp, zone);
+		j = 0;
+		while (j < board.height)
+			draw_one(op, canva, i, j++);
+		i++;
 	}
-	if (scan_ret != -1)
+	return (0);
+}
+
+int	execute(board board, char **canva, FILE *stream)
+{
+	op op;
+
+	int ret = fscanf(stream, "%c %f %f %f %f %c\n", &op.type, &op.x, &op.y, &op.width, &op.height, &op.color);
+	while (ret == 6)
+	{
+		if (draw(op, board, canva))
+			return (1);
+		ret = fscanf(stream, "%c %f %f %f %f %c\n", &op.type, &op.x, &op.y, &op.width, &op.height, &op.color);
+	}
+	if (ret == -1)
+	{
+		print_canva(canva, board);
 		return (0);
+	}
 	return (1);
 }
 
-void
-	draw_drawing(char *drawing, t_zone *zone)
+void	fill_canva(char **canva, board board)
 {
-	int	i;
+	int width = 0;
+	int height = 0;
 
-	i = 0;
-	while (i < zone->height)
+	while (height < board.height)
 	{
-		write(1, drawing + (i * zone->width), zone->width);
-		write(1, "\n", 1);
-		i++;
+		width = 0;
+		canva[height] = calloc(1, board.width + 1);
+		while (width < board.width)
+		{
+			canva[height][width] = board.background;
+			width++;
+		}
+		canva[height][width] = '\n';
+		height++;
 	}
 }
 
-int
-	main(int argc, char **argv)
-{
-	t_zone	zone;
-	char	*drawing;
-	FILE	*file;
 
-	zone.width = 0;
-	zone.height = 0;
-	zone.background = 0;
-	if (argc != 2)
-		return (str_error("Error: argument\n", 1));
-	if (!(file = fopen(argv[1], "r")))
-		return (str_error("Error: Operation file corrupted\n", 1));
-	if (!get_zone(file, &zone))
-		return (clear_all(file, NULL) && str_error("Error: Operation file corrupted\n", 1));
-	if (!(drawing = paint_background(&zone)))
-		return (clear_all(file, NULL) && str_error("Error: malloc failed :)\n", 1));
-	if (!draw_shapes(file, &drawing, &zone))
-		return (clear_all(file, drawing) && str_error("Error: Operation file corrupted\n", 1));
-	draw_drawing(drawing, &zone);
-	clear_all(file, drawing);
+
+int	main(int ac, char **av)
+{
+	if (ac != 2)
+	{
+		ft_putstr("Error: argument\n");
+		return (1);
+	}
+	board board;
+	FILE *stream = fopen(av[1], "r");
+	if (parse_first_line(&board, stream))
+	{
+		ft_putstr("Error: Operation file corrupted\n");
+		return (1);
+	}
+	char **canva = malloc(sizeof(char*) * board.height);
+	fill_canva(canva, board);
+	if (execute(board, canva, stream))
+	{
+		ft_putstr("Error: Operation file corrupted\n");
+		return (1);
+	}
 	return (0);
 }

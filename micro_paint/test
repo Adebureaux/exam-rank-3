@@ -1,0 +1,40 @@
+gcc micro_paint.c -o nooriginal -Wall -Wextra -Werror
+gcc our_micro_paint.c -o original -Wall -Wextra -Werror
+echo "TEST - <0>"
+./nooriginal ./examples/0 > noor
+./original ./examples/0 > or
+echo "Diff"
+diff noor or
+echo ""
+echo "TEST - <1>"
+./nooriginal ./examples/1 > noor
+./original ./examples/1 > or
+echo "Diff"
+diff noor or
+echo ""
+echo "TEST - <2>"
+./nooriginal ./examples/2 > noor
+./original ./examples/2 > or
+echo "Diff"
+diff noor or
+echo ""
+echo "TEST - <3>"
+./nooriginal ./examples/3 > noor
+./original ./examples/3 > or
+echo "Diff"
+diff noor or
+rm -rf noor or
+echo ""
+echo "TEST - <NULL>"
+echo "NO original"
+./nooriginal
+echo "Original"
+./original
+echo ""
+echo "TEST - <Error file>"
+echo "NO original"
+./nooriginal /dev/null
+echo "Original"
+./original /dev/null
+rm nooriginal
+rm original
