@@ -73,7 +73,7 @@ int main(int argc, char *argv[])
         if ((res = fscanf(fd, "%d %d %c\n", &x, &y, &c)) == 3 && x > 0 && x <= 300 && y > 0 && y <= 300)
         {
             tab = malloc(sizeof(char *) * y + 1);
-            tab[y] = 0;
+	    tab[y] = 0;
             while (i < y)
             {
                 tab[i] = malloc(sizeof(char) * x + 1);
