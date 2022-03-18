@@ -1,162 +1,121 @@
 #include <stdio.h>
-#include <unistd.h>
 #include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 #include <math.h>
 
-typedef struct	s_zone
+typedef struct canva
 {
-	int		width;
-	int		height;
-	char	background;
-}				t_zone;
+	int w;
+	int h;
+	char c;
+	char **canva;
+} canva;
 
-typedef struct	s_shape
+typedef struct op
 {
-	char	type;
-	float	x;
-	float	y;
-	float	radius;
-	char	color;
-}				t_shape;
+	char t;
+	float x;
+	float y;
+	float r;
+	char c;
+} op;
 
-int
-	ft_strlen(char const *str)
+void ft_putstr(char *str)
 {
-	int	i;
-
-	i = 0;
-	while (str[i])
-		i++;
-	return (i);
+	int i = -1;
+	while (str && str[++i])
+		write(1, &str[i], 1);
+	write(1, "\n", 1);
 }
 
-char
-	*get_zone(FILE *file, t_zone *zone)
+int print_error(char *str)
 {
-	int		i;
-	char	*tmp;
-
-	if (fscanf(file, "%d %d %c\n", &zone->width, &zone->height, &zone->background) != 3)
-		return (NULL);
-	if (zone->width <= 0 || zone->width > 300 || zone->height <= 0 || zone->height > 300)
-		return (NULL);
-	if (!(tmp = (char*)malloc(sizeof(*tmp) * (zone->width * zone->height))))
-		return (NULL);
-	i = 0;
-	while (i < zone->width * zone->height)
-		tmp[i++] = zone->background;
-	return (tmp);
+	ft_putstr(str);
+	return (1);
 }
 
-int
-	in_circle(float x, float y, t_shape *shape)
+int print_canva(char **canva)
 {
-	float	distance;
+	int i = -1;
+	while (canva[++i])
+		ft_putstr(canva[i]);
+	return (0);
+}
 
-	distance = sqrtf(powf(x - shape->x, 2.) + powf(y - shape->y, 2.));
-	if (distance <= shape->radius)
+int init_canva(FILE *stream, canva *canva)
+{
+	int i = -1;
+
+	if (fscanf(stream, "%d %d %c\n", &canva->w, &canva->h, &canva->c) != 3)
+		return (1);
+	if (canva->w <= 0 || canva->w > 300 || canva->h <= 0 || canva->h > 300)
+		return (1);
+	canva->canva = malloc(sizeof(char*) * (canva->h + 1));
+	canva->canva[canva->h] = 0;
+	while (++i < canva->h)
 	{
-		if ((shape->radius - distance) < 1.00000000)
+		canva->canva[i] = malloc(sizeof(char) * (canva->w + 1));
+		canva->canva[i][canva->w] = '\0';
+		memset(canva->canva[i], canva->c, canva->w);
+	}
+	return (0);
+}
+
+int is_in_circle(op op, float x, float y)
+{
+	float	dist;
+
+	dist = sqrtf(powf(x - op.x, 2.) + powf(y - op.y, 2.));
+	if (dist <= op.r)
+	{
+		if ((op.r - dist) < 1.00000000)
 			return (2);
 		return (1);
 	}
 	return (0);
 }
 
-void
-	draw_shape(t_zone *zone, char *drawing, t_shape *shape)
+void apply_op(canva *canva, op op)
 {
-	int	y;
-	int	x;
-	int	is_it;
-
-	y = 0;
-	while (y < zone->height)
+	int is_in;
+	for (int j = 0; j < canva->h; j++)
 	{
-		x = 0;
-		while (x < zone->width)
+		for (int i = 0; i < canva->w; i++)
 		{
-			is_it = in_circle((float)x, (float)y, shape);
-			if ((shape->type == 'c' && is_it == 2)
-				|| (shape->type == 'C' && is_it))
-				drawing[(y * zone->width) + x] = shape->color;
-			x++;
+			is_in = is_in_circle(op, i, j);
+			if ((is_in == 1 && op.t == 'C') || is_in == 2)
+				canva->canva[j][i] = op.c;
 		}
-		y++;
 	}
 }
 
-int
-	draw_shapes(FILE *file, t_zone *zone, char *drawing)
+int check_op(op op)
 {
-	t_shape	tmp;
-	int		ret;
-
-	while ((ret = fscanf(file, "%c %f %f %f %c\n", &tmp.type, &tmp.x, &tmp.y, &tmp.radius, &tmp.color)) == 5)
-	{
-		if (tmp.radius <= 0.00000000 || (tmp.type != 'c' && tmp.type != 'C'))
-			return (0);
-		draw_shape(zone, drawing, &tmp);
-	}
-	if (ret != -1)
-		return (0);
-	return (1);
-}
-
-void
-	draw_drawing(t_zone *zone, char *drawing)
-{
-	int	i;
-
-	i = 0;
-	while (i < zone->height)
-	{
-		write(1, drawing + (i * zone->width), zone->width);
-		write(1, "\n", 1);
-		i++;
-	}
-}
-
-int
-	str_error(char const *str)
-{
-	if (str)
-		write(1, str, ft_strlen(str));
-	return (1);
-}
-
-int
-	clear_all(FILE *file, char *drawing, char const *str)
-{
-	if (file)
-		fclose(file);
-	if (drawing)
-		free(drawing);
-	if (str)
-		str_error(str);
-	return (1);
-}
-
-int
-	main(int argc, char **argv)
-{
-	FILE	*file;
-	t_zone	zone;
-	char	*drawing;
-
-	zone.width = 0;
-	zone.height = 0;
-	zone.background = 0;
-	drawing = NULL;
-	if (argc != 2)
-		return (str_error("Error: argument\n"));
-	if (!(file = fopen(argv[1], "r")))
-		return (str_error("Error: Operation file corrupted\n"));
-	if (!(drawing = get_zone(file, &zone)))
-		return (clear_all(file, NULL, "Error: Operation file corrupted\n"));
-	if (!(draw_shapes(file, &zone, drawing)))
-		return (clear_all(file, drawing, "Error: Operation file corrupted\n"));
-	draw_drawing(&zone, drawing);
-	clear_all(file, drawing, NULL);
+	if (op.r <= 0 || (op.t != 'C' && op.t != 'c'))
+		return (1);
 	return (0);
+}
+
+int main(int ac, char **av)
+{
+	if (ac != 2)
+		return (print_error("Error: argument"));
+	FILE *stream = fopen(av[1], "r");
+	int ret;
+	canva canva;
+	op op;
+	if (!stream || init_canva(stream, &canva))
+		return (print_error("Error: Operation file corrupted"));
+	while (1)
+	{
+		ret = fscanf(stream, "%c %f %f %f %c\n", &op.t, &op.x, &op.y, &op.r, &op.c);
+		if (ret == -1)
+			return (print_canva(canva.canva));
+		if (ret == 5 && !check_op(op))
+			apply_op(&canva, op);
+		else
+			break ;
+	}
+	return (print_error("Error: Operation file corrupted"));
 }
